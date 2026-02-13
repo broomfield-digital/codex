@@ -1,3 +1,9 @@
+## Local Workspace Context
+
+- Canonical local codex fork path: `/Users/fillmore/BroomfieldDigital/codex`.
+- Canonical local JunoOS project path: `/Users/fillmore/BroomfieldDigital/JunoOS`.
+- Treat `/Users/fillmore/YouSolar/JunoOS` as legacy/archival unless explicitly requested.
+
 # Rust/codex-rs
 
 In the codex-rs folder where the rust code lives:
