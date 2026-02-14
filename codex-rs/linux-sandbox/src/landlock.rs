@@ -149,26 +149,26 @@ fn install_network_seccomp_filter_on_current_thread() -> std::result::Result<(),
         rules.insert(nr, vec![]); // empty rule vec = unconditional match
     };
 
-    deny_syscall(libc::SYS_connect);
-    deny_syscall(libc::SYS_accept);
-    deny_syscall(libc::SYS_accept4);
-    deny_syscall(libc::SYS_bind);
-    deny_syscall(libc::SYS_listen);
-    deny_syscall(libc::SYS_getpeername);
-    deny_syscall(libc::SYS_getsockname);
-    deny_syscall(libc::SYS_shutdown);
-    deny_syscall(libc::SYS_sendto);
-    deny_syscall(libc::SYS_sendmmsg);
+    deny_syscall(libc::SYS_connect as i64);
+    deny_syscall(libc::SYS_accept as i64);
+    deny_syscall(libc::SYS_accept4 as i64);
+    deny_syscall(libc::SYS_bind as i64);
+    deny_syscall(libc::SYS_listen as i64);
+    deny_syscall(libc::SYS_getpeername as i64);
+    deny_syscall(libc::SYS_getsockname as i64);
+    deny_syscall(libc::SYS_shutdown as i64);
+    deny_syscall(libc::SYS_sendto as i64);
+    deny_syscall(libc::SYS_sendmmsg as i64);
     // NOTE: allowing recvfrom allows some tools like: `cargo clippy` to run
     // with their socketpair + child processes for sub-proc management
     // deny_syscall(libc::SYS_recvfrom);
-    deny_syscall(libc::SYS_recvmmsg);
-    deny_syscall(libc::SYS_getsockopt);
-    deny_syscall(libc::SYS_setsockopt);
-    deny_syscall(libc::SYS_ptrace);
-    deny_syscall(libc::SYS_io_uring_setup);
-    deny_syscall(libc::SYS_io_uring_enter);
-    deny_syscall(libc::SYS_io_uring_register);
+    deny_syscall(libc::SYS_recvmmsg as i64);
+    deny_syscall(libc::SYS_getsockopt as i64);
+    deny_syscall(libc::SYS_setsockopt as i64);
+    deny_syscall(libc::SYS_ptrace as i64);
+    deny_syscall(libc::SYS_io_uring_setup as i64);
+    deny_syscall(libc::SYS_io_uring_enter as i64);
+    deny_syscall(libc::SYS_io_uring_register as i64);
 
     // For `socket` we allow AF_UNIX (arg0 == AF_UNIX) and deny everything else.
     let unix_only_rule = SeccompRule::new(vec![SeccompCondition::new(
@@ -178,20 +178,23 @@ fn install_network_seccomp_filter_on_current_thread() -> std::result::Result<(),
         libc::AF_UNIX as u64,
     )?])?;
 
-    rules.insert(libc::SYS_socket, vec![unix_only_rule.clone()]);
-    rules.insert(libc::SYS_socketpair, vec![unix_only_rule]); // always deny (Unix can use socketpair but fine, keep open?)
+    rules.insert(libc::SYS_socket as i64, vec![unix_only_rule.clone()]);
+    rules.insert(libc::SYS_socketpair as i64, vec![unix_only_rule]); // always deny (Unix can use socketpair but fine, keep open?)
+
+    let target_arch = if cfg!(target_arch = "x86_64") {
+        TargetArch::x86_64
+    } else if cfg!(target_arch = "aarch64") {
+        TargetArch::aarch64
+    } else {
+        // Keep builds working on unsupported architectures (for example armv7).
+        return Ok(());
+    };
 
     let filter = SeccompFilter::new(
         rules,
         SeccompAction::Allow,                     // default – allow
         SeccompAction::Errno(libc::EPERM as u32), // when rule matches – return EPERM
-        if cfg!(target_arch = "x86_64") {
-            TargetArch::x86_64
-        } else if cfg!(target_arch = "aarch64") {
-            TargetArch::aarch64
-        } else {
-            unimplemented!("unsupported architecture for seccomp filter");
-        },
+        target_arch,
     )?;
 
     let prog: BpfProgram = filter.try_into()?;
