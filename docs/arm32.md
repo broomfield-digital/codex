@@ -13,6 +13,16 @@ This branch tracks the minimum deltas required to build `codex` for
 - Sysroot:
   `/opt/homebrew/Cellar/armv7-unknown-linux-gnueabihf/13.3.0/toolchain/armv7-unknown-linux-gnueabihf/sysroot`
 
+## Artifact Retention
+
+Keep ARM32 intermediates and final outputs under the repo-local build directory:
+
+- Intermediate artifacts: `build/arm32/intermediate/`
+- Final binaries: `build/arm32/bin/`
+- Build metadata/checksums: `build/arm32/ARTIFACTS.txt`
+
+Avoid relying on `/tmp` for anything you need to keep.
+
 ## Branch Deltas Kept for ARM32
 
 1. `codex-rs/linux-sandbox/src/landlock.rs`
@@ -33,18 +43,18 @@ This branch tracks the minimum deltas required to build `codex` for
 
 ```bash
 PATH="/opt/homebrew/opt/rustup/bin:/opt/homebrew/bin:$PATH" \
-RUSTFLAGS="-C link-arg=/tmp/libendiancompat.a" \
+RUSTFLAGS="-C link-arg=../build/arm32/intermediate/libendiancompat.a" \
 CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=armv7-unknown-linux-gnueabihf-gcc \
 CC_armv7_unknown_linux_gnueabihf=armv7-unknown-linux-gnueabihf-gcc \
 CXX_armv7_unknown_linux_gnueabihf=armv7-unknown-linux-gnueabihf-g++ \
 AR_armv7_unknown_linux_gnueabihf=armv7-unknown-linux-gnueabihf-ar \
 RANLIB_armv7_unknown_linux_gnueabihf=armv7-unknown-linux-gnueabihf-ranlib \
 PKG_CONFIG_ALLOW_CROSS=1 \
-/opt/homebrew/opt/rustup/bin/cargo build -p codex-cli --release --target armv7-unknown-linux-gnueabihf
+/opt/homebrew/opt/rustup/bin/cargo build -p codex-cli -p codex-linux-sandbox --release --target armv7-unknown-linux-gnueabihf
 ```
 
 Notes:
-- `/tmp/libendiancompat.a` is currently a temporary shim used to satisfy
+- `build/arm32/intermediate/libendiancompat.a` is currently a temporary shim used to satisfy
   `le16toh`/`be16toh` symbols for this toolchain.
 - Resulting binaries are dynamically linked and expect `/lib/ld-linux-armhf.so.3`.
 
@@ -59,6 +69,6 @@ ldd ./codex-linux-sandbox
 
 ## Open Items
 
-- Replace `/tmp/libendiancompat.a` temporary shim with an in-repo or toolchain-level fix.
+- Replace the `libendiancompat.a` temporary shim with an in-repo or toolchain-level fix.
 - Revisit vendored bubblewrap support when `libcap` is available in ARM32 sysroot.
 - Keep this branch rebased on `origin/main`; re-run ARM32 build + runtime checks after each rebase.
