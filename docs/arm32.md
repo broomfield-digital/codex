@@ -23,6 +23,11 @@ Keep ARM32 intermediates and final outputs under the repo-local build directory:
 
 Avoid relying on `/tmp` for anything you need to keep.
 
+## Local Test Dependencies
+
+- `dotslash` is required for `codex-rs/exec-server` integration tests.
+- Install on macOS with: `brew install dotslash`
+
 ## Branch Deltas Kept for ARM32
 
 1. `codex-rs/linux-sandbox/src/landlock.rs`
@@ -57,6 +62,41 @@ Notes:
 - `build/arm32/intermediate/libendiancompat.a` is currently a temporary shim used to satisfy
   `le16toh`/`be16toh` symbols for this toolchain.
 - Resulting binaries are dynamically linked and expect `/lib/ld-linux-armhf.so.3`.
+
+Generate the shim in the tracked build directory:
+
+```bash
+mkdir -p build/arm32/intermediate
+cat > build/arm32/intermediate/libendiancompat.c <<'EOF'
+#include <stdint.h>
+
+#ifdef le16toh
+#undef le16toh
+#endif
+#ifdef be16toh
+#undef be16toh
+#endif
+
+uint16_t le16toh(uint16_t x) { return x; }
+uint16_t be16toh(uint16_t x) { return __builtin_bswap16(x); }
+EOF
+armv7-unknown-linux-gnueabihf-gcc -c -o build/arm32/intermediate/libendiancompat.o build/arm32/intermediate/libendiancompat.c
+armv7-unknown-linux-gnueabihf-ar rcs build/arm32/intermediate/libendiancompat.a build/arm32/intermediate/libendiancompat.o
+```
+
+## Latest Validation (February 14, 2026)
+
+- ARM32 release artifacts produced:
+  - `build/arm32/bin/codex`
+  - `build/arm32/bin/codex-linux-sandbox`
+- Checksums and `file` metadata written to:
+  - `build/arm32/ARTIFACTS.txt`
+- Test status:
+  - `cargo test -p codex-linux-sandbox`: passed
+  - `cargo test -p codex-exec-server --test all -- --nocapture`: passed (after installing `dotslash`)
+  - `cargo test --all-features -- --skip tools::js_repl::tests::js_repl_can_attach_image_via_view_image_tool`: passed
+- Known caveat:
+  - `tools::js_repl::tests::js_repl_can_attach_image_via_view_image_tool` may hang in this environment when not skipped.
 
 ## Validation Checklist (Target Device)
 
